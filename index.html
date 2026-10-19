@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Sysdiagnose Analyzer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root {
+      --bg: #f2f2f7;
+      --card: #ffffff;
+      --text: #1c1c1e;
+      --muted: #8e8e93;
+      --border: #e5e5ea;
+      --red: #ff3b30;
+      --green: #34c759;
+      --yellow: #ffcc00;
+      --blue: #007aff;
+      --pink: #ff2d55;
+      --section-bg: #ffffff;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #000000;
+        --card: #1c1c1e;
+        --text: #ffffff;
+        --muted: #8e8e93;
+        --border: #38383a;
+        --section-bg: #1c1c1e;
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      padding: 0 0 40px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: var(--card);
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .header h1 {
+      font-size: 17px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .warning {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 4px;
+    }
+
+    .container {
+      padding: 16px;
+    }
+
+    .upload-card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 24px 16px;
+      text-align: center;
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+
+    .upload-card p {
+      font-size: 14px;
+      color: var(--muted);
+      margin: 8px 0 16px;
+    }
+
+    .btn {
+      display: inline-block;
+      background: var(--blue);
+      color: white;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn:active { opacity: 0.75; }
+    .btn:disabled {
+      background: #8e8e93;
+      opacity: 0.6;
+    }
+
+    .file-name {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--muted);
+      word-break: break-all;
+    }
+
+    .status {
+      text-align: center;
+      font-size: 14px;
+      color: var(--muted);
+      min-height: 22px;
+      margin: 8px 0 16px;
+    }
+
+    .section {
+      background: var(--section-bg);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .section-title .icon {
+      font-size: 16px;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      margin-left: auto;
+    }
+
+    .badge-red {
+      background: rgba(255, 59, 48, 0.15);
+      color: var(--red);
+    }
+
+    .badge-green {
+      background: rgba(52, 199, 89, 0.15);
+      color: var(--green);
+    }
+
+    .badge-yellow {
+      background: rgba(255, 204, 0, 0.18);
+      color: #b38600;
+    }
+
+    .result-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .result-title.red { color: var(--red); }
+    .result-title.green { color: var(--green); }
+    .result-title.yellow { color: #b38600; }
+
+    .result-desc {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .bundle-header {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--red);
+      margin: 12px 0 4px;
+    }
+
+    .category {
+      margin-top: 14px;
+    }
+
+    .category-name {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--pink);
+      margin-bottom: 6px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .category-count {
+      background: var(--border);
+      color: var(--text);
+      font-size: 11px;
+      padding: 1px 8px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+
+    .bundle-id {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12.5px;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border);
+      word-break: break-all;
+    }
+
+    .bundle-id:last-child {
+      border-bottom: none;
+    }
+
+    #results {
+      display: none;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 20px;
+      padding: 0 16px;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Sysdiagnose Analyzer</h1>
+    <div class="warning">Detected strings are evidence only.</div>
+  </div>
+
+  <div class="container">
+
+    <div class="upload-card">
+      <div style="font-size: 32px; margin-bottom: 6px;">📁</div>
+      <p>Upload a ZIP file containing<br><b>MobileInstallation</b> and/or <b>Networking</b> folders<br>or individual .log / .plist files</p>
+      <label class="btn" id="uploadLabel">
+        Choose File
+        <input type="file" id="fileInput" accept=".zip,.log,.plist,.txt,application/zip,text/plain" />
+      </label>
+      <div class="file-name" id="fileName"></div>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <button class="btn" id="analyzeBtn" style="width:100%; display:none;" onclick="startAnalysis()">Analyze</button>
+
+    <div id="results">
+
+      <!-- VPN -->
+      <div class="section">
+        <div class="section-title">
+          <span class="icon">🔒</span> VPN
+          <span class="badge" id="vpnBadge"></span>
+        </div>
+        <div id="vpnResult"></div>
+      </div>
+
+      <!-- Profiles / MDM -->
+      <div class="section">
+        <div class="section-title">
+          <span class="icon">📋</span> PROFILES / MDM
+          <span class="badge" id="profileBadge"></span>
+        </div>
+        <div id="profileResult"></div>
+      </div>
+
+      <!-- Certificates -->
+      <div class="section">
+        <div class="section-title">
+          <span class="icon">🔑</span> CERTIFICATES
+          <span class="badge" id="certBadge"></span>
+        </div>
+        <div id="certResult"></div>
+      </div>
+
+      <!-- App Installation -->
+      <div class="section">
+        <div class="section-title">
+          <span class="icon">⬇️</span> APP INSTALLATION
+          <span class="badge badge-red">EVIDENCE FOUND</span>
+        </div>
+        <div id="appResult"></div>
+      </div>
+
+    </div>
+
+    <div class="footer">
+      Identifiers found in supplied evidence; this does not prove every app is installed.
+    </div>
+
+  </div>
+
+<script>
+  const VPN_KEYWORDS = [
+    "vpn", "ipsec", "ikev2", "nevpn", "packet-tunnel", "app-proxy",
+    "com.apple.vpn", "vpntype", "vpnuuid", "ondemandenabled",
+    "netunnelprovider", "neappproxy", "networkextension"
+  ];
+
+  const PROFILE_KEYWORDS = [
+    "mdm", "configurationprofile", "payloadtype", "com.apple.mdm",
+    "profileidentifier", "payloadorganization", "manageddevice",
+    "devicemanagement", "com.apple.security.scep", "enrollment"
+  ];
+
+  const CERT_KEYWORDS = [
+    "certificate", "x509", "pkcs", "root ca", "trusted root",
+    "com.apple.security.pkcs1", "com.apple.security.root",
+    "certificateauthority", "payloadcertificate"
+  ];
+
+  const CATEGORY_MAP = {
+    "instagram": "SOCIAL MEDIA & COMMUNICATION",
+    "facebook": "SOCIAL MEDIA & COMMUNICATION",
+    "whatsapp": "SOCIAL MEDIA & COMMUNICATION",
+    "telegram": "SOCIAL MEDIA & COMMUNICATION",
+    "snapchat": "SOCIAL MEDIA & COMMUNICATION",
+    "tiktok": "SOCIAL MEDIA & COMMUNICATION",
+    "twitter": "SOCIAL MEDIA & COMMUNICATION",
+    "messenger": "SOCIAL MEDIA & COMMUNICATION",
+    "discord": "SOCIAL MEDIA & COMMUNICATION",
+    "signal": "SOCIAL MEDIA & COMMUNICATION",
+    "freefire": "GAMES",
+    "garena": "GAMES",
+    "pubg": "GAMES",
+    "codmobile": "GAMES",
+    "clash": "GAMES",
+    "roblox": "GAMES",
+    "youtube": "ENTERTAINMENT",
+    "netflix": "ENTERTAINMENT",
+    "spotify": "ENTERTAINMENT",
+    "chrome": "BROWSERS & TOOLS",
+    "google": "BROWSERS & TOOLS"
+  };
+
+  let selectedFile = null;
+
+  const fileInput = document.getElementById("fileInput");
+  const fileNameEl = document.getElementById("fileName");
+  const analyzeBtn = document.getElementById("analyzeBtn");
+  const statusEl = document.getElementById("status");
+
+  fileInput.addEventListener("change", function (e) {
+    selectedFile = e.target.files[0] || null;
+    if (selectedFile) {
+      fileNameEl.textContent = selectedFile.name + " (" + formatSize(selectedFile.size) + ")";
+      analyzeBtn.style.display = "block";
+      statusEl.textContent = "";
+    } else {
+      fileNameEl.textContent = "";
+      analyzeBtn.style.display = "none";
+    }
+  });
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+  }
+
+  function findKeywords(text, keywords) {
+    const lower = text.toLowerCase();
+    return keywords.filter(k => lower.includes(k.toLowerCase()));
+  }
+
+  function extractBundleIds(text) {
+    const set = new Set();
+    const patterns = [
+      /Install Successful for \(([^)]+)\)/gi,
+      /Install of ([a-zA-Z0-9.\-]+)/gi,
+      /bundleID["']?\s*[:=]\s*["']?([a-zA-Z0-9.\-]+)/gi,
+      /\b(com\.[a-zA-Z0-9.\-]+)\b/g,
+      /\b([a-zA-Z0-9\-]+\.[a-zA-Z0-9.\-]{4,})\b/g
+    ];
+
+    for (const pattern of patterns) {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        let id = match[1].trim().replace(/[()"']/g, "");
+        if (
+          id.includes(".") &&
+          id.length > 6 &&
+          !id.startsWith("http") &&
+          !["path", "file", "error", "null", "true", "false", "bundle", "version", "string", "data"].some(w => id.toLowerCase().includes(w))
+        ) {
+          set.add(id);
+        }
+      }
+    }
+    return set;
+  }
+
+  function categorize(bundles) {
+    const cats = {};
+    for (const id of [...bundles].sort()) {
+      let cat = "OTHER";
+      const lower = id.toLowerCase();
+      for (const [key, name] of Object.entries(CATEGORY_MAP)) {
+        if (lower.includes(key)) {
+          cat = name;
+          break;
+        }
+      }
+      if (!cats[cat]) cats[cat] = [];
+      cats[cat].push(id);
+    }
+    return cats;
+  }
+
+  async function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result || "");
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsText(file);
+    });
+  }
+
+  async function processZip(file) {
+    const zip = await JSZip.loadAsync(file);
+    let fullText = "";
+    const bundleSet = new Set();
+    let processed = 0;
+
+    const entries = [];
+    zip.forEach((path, entry) => {
+      if (!entry.dir) entries.push({ path, entry });
+    });
+
+    for (const { path, entry } of entries) {
+      const lower = path.toLowerCase();
+      const shouldRead =
+        lower.includes("mobileinstallation") ||
+        lower.includes("networking") ||
+        lower.endsWith(".log") ||
+        lower.endsWith(".plist") ||
+        lower.endsWith(".txt") ||
+        lower.includes("install") ||
+        lower.includes("network") ||
+        entries.length < 50;
+
+      if (shouldRead) {
+        try {
+          const content = await entry.async("string");
+          if (content && content.length > 5) {
+            fullText += content + "\n";
+            extractBundleIds(content).forEach(id => bundleSet.add(id));
+            processed++;
+          }
+        } catch (e) {
+          // skip binary files
+        }
+      }
+    }
+
+    return { fullText, bundleSet, processed };
+  }
+
+  async function startAnalysis() {
+    if (!selectedFile) return;
+
+    analyzeBtn.disabled = true;
+    analyzeBtn.textContent = "Analyzing...";
+    statusEl.textContent = "Reading file...";
+
+    try {
+      let fullText = "";
+      let bundleSet = new Set();
+
+      if (selectedFile.name.toLowerCase().endsWith(".zip")) {
+        statusEl.textContent = "Extracting ZIP...";
+        const result = await processZip(selectedFile);
+        fullText = result.fullText;
+        bundleSet = result.bundleSet;
+        statusEl.textContent = "Processed " + result.processed + " files from ZIP";
+      } else {
+        fullText = await readFileAsText(selectedFile);
+        bundleSet = extractBundleIds(fullText);
+        statusEl.textContent = "File read successfully";
+      }
+
+      if (fullText.length < 30) {
+        statusEl.textContent = "File appears empty or unreadable";
+        analyzeBtn.disabled = false;
+        analyzeBtn.textContent = "Analyze";
+        return;
+      }
+
+      renderResults(fullText, bundleSet);
+      statusEl.textContent = "Analysis complete";
+
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = "Error: " + err.message;
+    }
+
+    analyzeBtn.disabled = false;
+    analyzeBtn.textContent = "Analyze";
+  }
+
+  function renderResults(text, bundleSet) {
+    // VPN
+    const vpnHits = findKeywords(text, VPN_KEYWORDS);
+    const vpnBadge = document.getElementById("vpnBadge");
+    const vpnResult = document.getElementById("vpnResult");
+    if (vpnHits.length > 0) {
+      vpnBadge.className = "badge badge-red";
+      vpnBadge.textContent = "EVIDENCE";
+      vpnResult.innerHTML = `
+        <div class="result-title red">EVIDENCE FOUND</div>
+        <div class="result-desc">Indicators: vpn</div>
+        <div class="result-desc">Found: ${vpnHits.slice(0, 6).join(", ")}</div>
+      `;
+    } else {
+      vpnBadge.className = "badge badge-green";
+      vpnBadge.textContent = "NOT DETECTED";
+      vpnResult.innerHTML = `
+        <div class="result-title green">NOT DETECTED</div>
+        <div class="result-desc">No recognizable VPN evidence.</div>
+      `;
+    }
+
+    // Profiles
+    const profileHits = findKeywords(text, PROFILE_KEYWORDS);
+    const profileBadge = document.getElementById("profileBadge");
+    const profileResult = document.getElementById("profileResult");
+    if (profileHits.length > 0) {
+      profileBadge.className = "badge badge-red";
+      profileBadge.textContent = "EVIDENCE";
+      profileResult.innerHTML = `
+        <div class="result-title red">EVIDENCE FOUND</div>
+        <div class="result-desc">Found: ${profileHits.slice(0, 5).join(", ")}</div>
+      `;
+    } else {
+      profileBadge.className = "badge badge-green";
+      profileBadge.textContent = "NOT DETECTED";
+      profileResult.innerHTML = `
+        <div class="result-title green">NOT DETECTED</div>
+        <div class="result-desc">No recognizable profile evidence.</div>
+      `;
+    }
+
+    // Certificates
+    const certHits = findKeywords(text, CERT_KEYWORDS);
+    const certBadge = document.getElementById("certBadge");
+    const certResult = document.getElementById("certResult");
+    if (certHits.length > 0) {
+      certBadge.className = "badge badge-yellow";
+      certBadge.textContent = "EVIDENCE";
+      certResult.innerHTML = `
+        <div class="result-title yellow">EVIDENCE FOUND</div>
+        <div class="result-desc">Found: ${certHits.slice(0, 5).join(", ")}</div>
+      `;
+    } else {
+      certBadge.className = "badge badge-green";
+      certBadge.textContent = "NOT DETECTED";
+      certResult.innerHTML = `
+        <div class="result-title green">NOT DETECTED</div>
+        <div class="result-desc">No recognizable certificate evidence.</div>
+      `;
+    }
+
+    // Apps
+    const appResult = document.getElementById("appResult");
+    if (bundleSet.size > 0) {
+      const cats = categorize(bundleSet);
+      let html = `
+        <div class="result-title red">EVIDENCE FOUND</div>
+        <div class="bundle-header">UNIQUE BUNDLE IDS FOUND: ${bundleSet.size}</div>
+        <div class="result-desc">Identifiers found in supplied evidence; this does not prove every app is installed.</div>
+        <div style="margin-top:14px; font-weight:600; color:var(--pink); font-size:13px;">BUNDLE IDS BY CATEGORY</div>
+      `;
+
+      for (const [catName, ids] of Object.entries(cats).sort()) {
+        html += `
+          <div class="category">
+            <div class="category-name">
+              <span>● ${catName}</span>
+              <span class="category-count">${ids.length}</span>
+            </div>
+            ${ids.map(id => `<div class="bundle-id">${id}</div>`).join("")}
+          </div>
+        `;
+      }
+      appResult.innerHTML = html;
+    } else {
+      appResult.innerHTML = `
+        <div class="result-desc">No Bundle IDs found. Make sure the file contains MobileInstallation logs.</div>
+      `;
+    }
+
+    document.getElementById("results").style.display = "block";
+    setTimeout(() => {
+      document.getElementById("results").scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  }
+</script>
+</body>
+</html>
